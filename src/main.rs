@@ -7,7 +7,6 @@ use mavlink::{
     },
 };
 use std::{
-    env,
     error::Error,
     sync::{Arc, Mutex},
 };
@@ -18,7 +17,7 @@ enum Phase { Disconnected, Connected, Armed, Guided }
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn Error>> {
-    let port = env::args().nth(1).unwrap_or_else(|| "14551".into());
+    let port = "14551";
     let conn_str = format!("udpin:0.0.0.0:{}", port);
     let link  = Arc::new(Mutex::new(connect::<MavMessage>(&conn_str)?));
     let phase = Arc::new(Mutex::new(Phase::Disconnected));
@@ -39,7 +38,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
                     }
                 };
 
-                if let MavMessage::HEARTBEAT(vhb) = msg {
+                if let MavMessage::HEARTBEAT(vhb) = &msg {
                     let mut st = phase.lock().unwrap();
                     match *st {
                         Phase::Disconnected => {
@@ -54,7 +53,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
                         }
                         Phase::Armed if
                             vhb.base_mode.contains(MavModeFlag::MAV_MODE_FLAG_SAFETY_ARMED) &&
-                            (vhb.custom_mode & 0xFF) == 15 =>               // Plane GUIDED
+                            (vhb.custom_mode & 0xFF) == 15 =>               // Plane QGUIDED
                         {
                             *st = Phase::Guided;
                             println!("✓ GUIDED confirmed — hover");
@@ -66,7 +65,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
         });
     }
 
-    /* ------------- TASK 2: send GCS heartbeat -------------- */
+    /* ------------- TASK 2: send GCS heartbeat to FC-------------- */
     {
         let link = link.clone();
         tokio::spawn(async move {

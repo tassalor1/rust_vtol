@@ -12,6 +12,8 @@ Follow ardu_pilot README
 
 Run Gazebo
 ```
+export GZ_SIM_RESOURCE_PATH=$HOME/dev/ardupilot_gazebo/models:$HOME/dev/ardupilot_gazebo/worlds:$HOME/dev/SITL_Models/Gazebo/models:${GZ_SIM_RESOURCE_PATH}
+export GZ_SIM_SYSTEM_PLUGIN_PATH=$HOME/dev/ardupilot_gazebo/build:${GZ_SIM_SYSTEM_PLUGIN_PATH}
 cd $HOME/SITL_Models/Gazebo/worlds
 gz sim -v4 -r skywalker_x8_quad_runway.sdf
 ```
@@ -22,7 +24,14 @@ Run ArduPilot SITL
 14550 is QGC 14551 is guided script
 ```
 cd ~/ardupilot
-/Tools/autotest/sim_vehicle.py   -v ArduPlane   --model JSON   --add-param-file=$HOME/dev/SITL_Models/Gazebo/config/skywalker_x8.param   --console --map   --out=udp:127.0.0.1:14550   --out=udp:127.0.0.1:14551   --no-rebuild  
+./Tools/autotest/sim_vehicle.py \
+        -v ArduPlane \
+        --model JSON \
+        --add-param-file=$HOME/dev/SITL_Models/Gazebo/config/skywalker_x8_quad.param \
+        --console --map \
+        --out=udp:127.0.0.1:14550 \
+        --out=udp:127.0.0.1:14551
+        --no-build
 ```
 
 Guided Script
