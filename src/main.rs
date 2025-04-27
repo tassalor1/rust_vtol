@@ -12,15 +12,19 @@ use std::{
 };
 use tokio::time::{sleep, Duration, interval};
 
+mod flight_mode;
+use flight_mode::{FlightMode, flight_mode_params};
+
 #[derive(Clone, Copy, PartialEq, Debug)]
 enum Phase { Disconnected, Connected, Armed, Guided }
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn Error>> {
-    let port = "14551";
+    let port = "14540";
     let conn_str = format!("udpin:0.0.0.0:{}", port);
     let link  = Arc::new(Mutex::new(connect::<MavMessage>(&conn_str)?));
     let phase = Arc::new(Mutex::new(Phase::Disconnected));
+    
 
     println!("✓ MAVLink listening on {conn_str}");
 
@@ -28,6 +32,10 @@ async fn main() -> Result<(), Box<dyn Error>> {
     {
         let (link, phase) = (link.clone(), phase.clone());
         tokio::spawn(async move {
+            // assign modes
+            let offboard = flight_mode_params(FlightMode::Offboard); 
+            let manual = flight_mode_params(FlightMode::Manual); 
+            let acro = flight_mode_params(FlightMode::Acro); 
             loop {
                 let msg = {
                     // blocking read, but in its own task
@@ -39,26 +47,31 @@ async fn main() -> Result<(), Box<dyn Error>> {
                 };
 
                 if let MavMessage::HEARTBEAT(vhb) = &msg {
-                    let mut st = phase.lock().unwrap();
-                    match *st {
-                        Phase::Disconnected => {
-                            *st = Phase::Connected;
-                            println!("✓ vehicle connected");
+                    if vhb.mavtype != MavType::MAV_TYPE_GCS {
+                        // px4 way of parsing mavlink - get the bit of these modes
+                        let main_mode = ((vhb.custom_mode >> 16) & 0xFF) as u8;
+                        let sub_mode  = ((vhb.custom_mode >> 24) & 0xFF) as u8;
+                        let mut st = phase.lock().unwrap();
+                        match *st {
+                            Phase::Disconnected => {
+                                *st = Phase::Connected;
+                                println!("✓ vehicle connected");
+                            }
+                            Phase::Connected if
+                                vhb.base_mode.contains(MavModeFlag::MAV_MODE_FLAG_SAFETY_ARMED) =>
+                            {
+                                *st = Phase::Armed;
+                                println!("✓ vehicle armed");
+                            }
+                            Phase::Armed if
+                                vhb.base_mode.contains(MavModeFlag::MAV_MODE_FLAG_SAFETY_ARMED) &&
+                                main_mode == offboard.main_mode =>               
+                            {
+                                *st = Phase::Guided;
+                                println!("✓ {offboard:?} mode confirmed");
+                            }
+                            _ => {}
                         }
-                        Phase::Connected if
-                            vhb.base_mode.contains(MavModeFlag::MAV_MODE_FLAG_SAFETY_ARMED) =>
-                        {
-                            *st = Phase::Armed;
-                            println!("✓ vehicle armed");
-                        }
-                        Phase::Armed if
-                            vhb.base_mode.contains(MavModeFlag::MAV_MODE_FLAG_SAFETY_ARMED) &&
-                            (vhb.custom_mode & 0xFF) == 15 =>               // Plane QGUIDED
-                        {
-                            *st = Phase::Guided;
-                            println!("✓ GUIDED confirmed — hover");
-                        }
-                        _ => {}
                     }
                 }
             }
@@ -121,12 +134,13 @@ async fn main() -> Result<(), Box<dyn Error>> {
         seq = seq.wrapping_add(1);
 
         match *phase.lock().unwrap() {
-            Phase::Disconnected => println!("waiting for ArduPilot heartbeat…"),
-            Phase::Connected   => println!("connected — arm in Mission Planner"),
-            Phase::Armed       => println!("armed — switch to GUIDED"),
+            Phase::Disconnected => println!("waiting for heartbeat…"),
+            Phase::Connected   => println!("connected — arm in QGC"),
+            Phase::Armed       => println!("armed — switch to OFFBOARD"),
             Phase::Guided      => {}
         }
 
         sleep(Duration::from_millis(20)).await;
     }
 }
+

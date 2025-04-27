@@ -1,40 +1,38 @@
+# Rust MAVLink VTOL Companion Computer Script
 
-PREREQUISITES
-[ardupilot](https://github.com/ArduPilot/ardupilot.git) installed and dev enviroment setup
-[gazebo](https://gazebosim.org/docs/garden/install_ubuntu/)
+## Overview
+This repository contains a Rust-based MAVLink script for controlling VTOL drones using PX4 SITL with Gazebo simulation.  
+It is designed to later run on a real companion computer onboard a drone.
 
-INSTALL Ardu Gazebo repos
-```
-https://github.com/ArduPilot/SITL_Models#
-https://github.com/ArduPilot/ardupilot_gazebo
-```
-Follow ardu_pilot README
+---
 
-Run Gazebo
-```
-export GZ_SIM_RESOURCE_PATH=$HOME/dev/ardupilot_gazebo/models:$HOME/dev/ardupilot_gazebo/worlds:$HOME/dev/SITL_Models/Gazebo/models:${GZ_SIM_RESOURCE_PATH}
-export GZ_SIM_SYSTEM_PLUGIN_PATH=$HOME/dev/ardupilot_gazebo/build:${GZ_SIM_SYSTEM_PLUGIN_PATH}
-cd $HOME/SITL_Models/Gazebo/worlds
-gz sim -v4 -r skywalker_x8_quad_runway.sdf
-```
+## PX4 Setup
 
-QGC Connect to UDP on port 14550
+### Prerequisites
+- [PX4-Autopilot](https://docs.px4.io/main/en/dev_setup/building_px4.html) downloaded and built
+- [QGroundControl](https://docs.qgroundcontrol.com/master/en/getting_started/download_and_install.html) installed
 
-Run ArduPilot SITL
-14550 is QGC 14551 is guided script
-```
-cd ~/ardupilot
-./Tools/autotest/sim_vehicle.py \
-        -v ArduPlane \
-        --model JSON \
-        --add-param-file=$HOME/dev/SITL_Models/Gazebo/config/skywalker_x8_quad.param \
-        --console --map \
-        --out=udp:127.0.0.1:14550 \
-        --out=udp:127.0.0.1:14551
-        --no-build
-```
+---
 
-Guided Script
+### Running PX4 SITL with Gazebo
+
+Open a terminal and run:
+
+```bash
+cd PX4-Autopilot
+make px4_sitl gz_standard_vtol
 ```
+This will launch the PX4 SITL simulation with a standard VTOL model.
+
+### Running QGroundControl
+Start QGroundControl.
+It should automatically connect to the simulator via UDP (port 14540 for PX4).
+
+### Running the PX4 Offboard Rust Script
+In a separate terminal, run:
+
+```bash
+cd rust_vtol
 cargo run
 ```
+This will start the companion computer script and begin MAVLink communication with PX4.
